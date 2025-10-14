@@ -9,6 +9,9 @@ import {
 } from "./svg-icons";
 import Button from "./UI/Button";
 import useIsMobile from "../hooks/useIsMobile";
+import { TokenName } from "./UI/TokenName";
+import Modal from "./UI/Modal";
+import AddToken from "./AddToken";
 
 type Token = {
   id: string;
@@ -122,20 +125,6 @@ const TableHeaderCell: React.FC<TableHeaderCellProps> = ({
   </TableCell>
 );
 
-type TokenNameProps = { imgUrl?: string; name: string; tag: string };
-const TokenName: React.FC<TokenNameProps> = ({ imgUrl, name, tag }) => (
-  <div className="flex items-center gap-3">
-    <div
-      className="bg-teal rounded flex-shrink-0"
-      style={{ width: 32, height: 32, borderRadius: 4 }}
-    />
-    <div className="flex items-center gap-3">
-      <span className="text-text-default text-sm">{name}</span>
-      <span className="text-text-muted text-sm">({tag})</span>
-    </div>
-  </div>
-);
-
 type SparklineChartProps = { data: number[]; positive: boolean };
 const SparklineChart: React.FC<SparklineChartProps> = ({ data, positive }) => {
   const width = 100;
@@ -215,6 +204,7 @@ const WatchlistTable: React.FC = () => {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const isMobile = useIsMobile();
   const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
   const startIndex = (currentPage - 1) * PAGE_SIZE;
@@ -256,216 +246,235 @@ const WatchlistTable: React.FC = () => {
   };
 
   return (
-    <div className="w-full flex flex-col gap-4 items-center justify-center max-md:px-4">
-      <div className="flex flex-row items-center justify-between w-full">
-        <div className="flex flex-row items-center gap-2 text-text-default text-lg md:text-2xl font-medium">
-          <StarIcon />
-          Watchlist
-        </div>
-        <div className="flex flex-row items-center gap-3">
-          <Button
-            size="lg"
-            variant="secondary"
-            className={isMobile ? "h-9 w-9" : ""}
-          >
-            <div className="flex flex-row items-center gap-2">
-              <RefreshIcon />
-              {isMobile ? "" : "Refresh Prices"}
-            </div>
-          </Button>
-          <Button size="lg" variant="primary">
-            <div className="flex flex-row items-center gap-2">
-              <AddIcon />
-              Add Token
-            </div>
-          </Button>
-        </div>
-      </div>
-
-      <div className="w-full rounded-2xl border border-[#FFFFFF14] overflow-hidden">
-        <style>{`.hide-scrollbar::-webkit-scrollbar{display:none;}`}</style>
-        <div
-          className="overflow-x-auto hide-scrollbar"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-        >
-          <div style={{ minWidth: "max-content" }}>
-            <div className="bg-surface flex items-center h-12 border-b border-[#FFFFFF14] px-6">
-              <div className="flex items-center gap-3">
-                <TableHeaderCell width={cellWidth}>Token</TableHeaderCell>
-                <TableHeaderCell width={cellWidth}>Price</TableHeaderCell>
-                <TableHeaderCell width={cellWidth}>24h %</TableHeaderCell>
-                <TableHeaderCell width={cellWidth}>
-                  Sparkline (7d)
-                </TableHeaderCell>
-                <TableHeaderCell width={cellWidth}>Holdings</TableHeaderCell>
-                <TableHeaderCell width={cellWidth}>Value</TableHeaderCell>
-                <TableCell width="48px" height="48px">
-                  <div className="text-text-muted text-[13px] font-medium" />
-                </TableCell>
+    <>
+      <div className="w-full flex flex-col gap-4 items-center justify-center max-md:px-4">
+        <div className="flex flex-row items-center justify-between w-full">
+          <div className="flex flex-row items-center gap-2 text-text-default text-lg md:text-2xl font-medium">
+            <StarIcon />
+            Watchlist
+          </div>
+          <div className="flex flex-row items-center gap-3">
+            <Button
+              size="lg"
+              variant="secondary"
+              className={isMobile ? "h-9 w-9" : ""}
+            >
+              <div className="flex flex-row items-center gap-2">
+                <RefreshIcon />
+                {isMobile ? "" : "Refresh Prices"}
               </div>
-            </div>
+            </Button>
+            <Button
+              size="lg"
+              variant="primary"
+              onClick={() => setIsAddOpen(true)}
+            >
+              <div className="flex flex-row items-center gap-2">
+                <AddIcon />
+                Add Token
+              </div>
+            </Button>
+          </div>
+        </div>
 
-            <div className="bg-transparent py-3">
-              {currentData.map((token) => {
-                const isActive =
-                  openMenuId === token.id || editingId === token.id;
-                return (
-                  <div
-                    key={token.id}
-                    className={`flex items-center h-12 hover:bg-surface transition-colors px-6 ${
-                      isActive ? "bg-surface" : ""
-                    }`}
-                    style={{ position: "relative" }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <TableCell width={cellWidth}>
-                        <TokenName
-                          imgUrl={token.imgUrl}
-                          name={token.name}
-                          tag={token.tag}
-                        />
-                      </TableCell>
+        <div className="w-full rounded-2xl border border-[#FFFFFF14] overflow-hidden">
+          <style>{`.hide-scrollbar::-webkit-scrollbar{display:none;}`}</style>
+          <div
+            className="overflow-x-auto hide-scrollbar"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          >
+            <div style={{ minWidth: "max-content" }}>
+              <div className="bg-surface flex items-center h-12 border-b border-[#FFFFFF14] px-6">
+                <div className="flex items-center gap-3">
+                  <TableHeaderCell width={cellWidth}>Token</TableHeaderCell>
+                  <TableHeaderCell width={cellWidth}>Price</TableHeaderCell>
+                  <TableHeaderCell width={cellWidth}>24h %</TableHeaderCell>
+                  <TableHeaderCell width={cellWidth}>
+                    Sparkline (7d)
+                  </TableHeaderCell>
+                  <TableHeaderCell width={cellWidth}>Holdings</TableHeaderCell>
+                  <TableHeaderCell width={cellWidth}>Value</TableHeaderCell>
+                  <TableCell width="48px" height="48px">
+                    <div className="text-text-muted text-[13px] font-medium" />
+                  </TableCell>
+                </div>
+              </div>
 
-                      <TableCell
-                        width={cellWidth}
-                        className="text-text-muted text-sm"
-                      >
-                        {token.price}
-                      </TableCell>
+              <div className="bg-transparent py-3">
+                {currentData.map((token) => {
+                  const isActive =
+                    openMenuId === token.id || editingId === token.id;
+                  return (
+                    <div
+                      key={token.id}
+                      className={`flex items-center h-12 hover:bg-surface transition-colors px-6 ${
+                        isActive ? "bg-surface" : ""
+                      }`}
+                      style={{ position: "relative" }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <TableCell width={cellWidth}>
+                          <TokenName
+                            imgUrl={token.imgUrl}
+                            name={token.name}
+                            tag={token.tag}
+                          />
+                        </TableCell>
 
-                      <TableCell
-                        width={cellWidth}
-                        className={`text-sm ${
-                          token.change24h >= 0
-                            ? "text-sparkline-green"
-                            : "text-sparkline-red"
-                        }`}
-                      >
-                        {token.change24h >= 0 ? "+" : ""}
-                        {token.change24h.toFixed(2)}%
-                      </TableCell>
-
-                      <TableCell width={cellWidth}>
-                        <SparklineChart
-                          data={token.sparkline}
-                          positive={token.change24h >= 0}
-                        />
-                      </TableCell>
-
-                      <TableCell width={cellWidth}>
-                        <EditableHoldings
-                          value={token.holdings}
-                          onChange={(v) => setEditingValue(v)}
-                          onSave={saveHoldings}
-                          editing={editingId === token.id}
-                        />
-                      </TableCell>
-
-                      <TableCell
-                        width={cellWidth}
-                        className="text-text-default text-sm"
-                      >
-                        {token.value}
-                      </TableCell>
-
-                      <TableCell width="28px" className="text-text-muted">
-                        <button
-                          aria-label="actions"
-                          onClick={() => openMenu(token.id)}
-                          className="cursor-pointer"
+                        <TableCell
+                          width={cellWidth}
+                          className="text-text-muted text-sm"
                         >
-                          <MoreIcon />
-                        </button>
-                      </TableCell>
-                    </div>
+                          {token.price}
+                        </TableCell>
 
-                    {openMenuId === token.id && (
-                      <div
-                        ref={(el) => {
-                          menuRefs.current[token.id] = el;
-                        }}
-                        style={{
-                          position: "absolute",
-                          right: 12,
-                          top: 40,
-                          zIndex: 40,
-                        }}
-                      >
+                        <TableCell
+                          width={cellWidth}
+                          className={`text-sm ${
+                            token.change24h >= 0
+                              ? "text-sparkline-green"
+                              : "text-sparkline-red"
+                          }`}
+                        >
+                          {token.change24h >= 0 ? "+" : ""}
+                          {token.change24h.toFixed(2)}%
+                        </TableCell>
+
+                        <TableCell width={cellWidth}>
+                          <SparklineChart
+                            data={token.sparkline}
+                            positive={token.change24h >= 0}
+                          />
+                        </TableCell>
+
+                        <TableCell width={cellWidth}>
+                          <EditableHoldings
+                            value={token.holdings}
+                            onChange={(v) => setEditingValue(v)}
+                            onSave={saveHoldings}
+                            editing={editingId === token.id}
+                          />
+                        </TableCell>
+
+                        <TableCell
+                          width={cellWidth}
+                          className="text-text-default text-sm"
+                        >
+                          {token.value}
+                        </TableCell>
+
+                        <TableCell width="28px" className="text-text-muted">
+                          <button
+                            aria-label="actions"
+                            onClick={() => openMenu(token.id)}
+                            className="cursor-pointer"
+                          >
+                            <MoreIcon />
+                          </button>
+                        </TableCell>
+                      </div>
+
+                      {openMenuId === token.id && (
                         <div
-                          className="bg-surface rounded-md p-1"
-                          style={{ borderRadius: 8 }}
+                          ref={(el) => {
+                            menuRefs.current[token.id] = el;
+                          }}
+                          style={{
+                            position: "absolute",
+                            right: 12,
+                            top: 40,
+                            zIndex: 40,
+                          }}
                         >
-                          <div className="flex flex-col">
-                            <button
-                              className="flex items-center gap-2 px-1 py-0 justify-start"
-                              style={{ width: 136, height: 28, padding: 4 }}
-                              onClick={() => startEditFromMenu(token.id)}
-                            >
-                              <div className="p-1">
-                                <EditIcon />
-                              </div>
-                              <div className="text-text-muted text-[13px]">
-                                Edit Holdings
-                              </div>
-                            </button>
-                            <div
-                              style={{
-                                height: 1,
-                                background: "rgba(255,255,255,0.08)",
-                              }}
-                            />
-                            <button
-                              className="flex items-center gap-2 px-1 py-0 justify-start"
-                              style={{ width: 136, height: 28, padding: 4 }}
-                              onClick={() => removeToken(token.id)}
-                            >
-                              <div className="p-1">
-                                <DeleteIcon />
-                              </div>
-                              <div
-                                className="text-[13px]"
-                                style={{ color: "#FDA4AF" }}
+                          <div
+                            className="bg-surface rounded-md p-1"
+                            style={{ borderRadius: 8 }}
+                          >
+                            <div className="flex flex-col">
+                              <button
+                                className="flex items-center gap-2 px-1 py-0 justify-start"
+                                style={{ width: 136, height: 28, padding: 4 }}
+                                onClick={() => startEditFromMenu(token.id)}
                               >
-                                Remove
-                              </div>
-                            </button>
+                                <div className="p-1">
+                                  <EditIcon />
+                                </div>
+                                <div className="text-text-muted text-[13px]">
+                                  Edit Holdings
+                                </div>
+                              </button>
+                              <div
+                                style={{
+                                  height: 1,
+                                  background: "rgba(255,255,255,0.08)",
+                                }}
+                              />
+                              <button
+                                className="flex items-center gap-2 px-1 py-0 justify-start"
+                                style={{ width: 136, height: 28, padding: 4 }}
+                                onClick={() => removeToken(token.id)}
+                              >
+                                <div className="p-1">
+                                  <DeleteIcon />
+                                </div>
+                                <div
+                                  className="text-[13px]"
+                                  style={{ color: "#FDA4AF" }}
+                                >
+                                  Remove
+                                </div>
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-transparent px-6 flex items-center justify-between h-12 border-t border-[#FFFFFF14]">
+            <div className="text-text-muted text-sm">
+              {startIndex + 1} — {endIndex} of {data.length} results
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-text-muted">
+                {currentPage} of {totalPages} pages
+              </span>
+              <button
+                className="px-3 py-1 rounded-full text-text-muted hover:bg-surface transition disabled:opacity-40"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                Prev
+              </button>
+              <button
+                className="px-3 py-1 rounded-full text-text-muted hover:bg-surface transition disabled:opacity-40"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </button>
             </div>
           </div>
         </div>
-
-        <div className="bg-transparent px-6 flex items-center justify-between h-12 border-t border-[#FFFFFF14]">
-          <div className="text-text-muted text-sm">
-            {startIndex + 1} — {endIndex} of {data.length} results
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-text-muted">
-              {currentPage} of {totalPages} pages
-            </span>
-            <button
-              className="px-3 py-1 rounded-full text-text-muted hover:bg-surface transition disabled:opacity-40"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              Prev
-            </button>
-            <button
-              className="px-3 py-1 rounded-full text-text-muted hover:bg-surface transition disabled:opacity-40"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+      <Modal
+        isOpen={isAddOpen}
+        onClose={() => setIsAddOpen(false)}
+        closeOnEsc={true}
+        closeOnBackdrop={true}
+        backdropClassName="fixed inset-0 flex items-center justify-center"
+        modalClassName="relative z-50 rounded-xl overflow-hidden w-full max-w-[640px] max-sm:mx-4 bg-background shadow-[0_8px_16px_0_#00000052,0_4px_8px_0_#00000052,0_0_0_1px_#FFFFFF1A,0_-1px_0_0_#FFFFFF0A,inset_0_0_0_1.5px_#FFFFFF0F,inset_0_0_0_1px_#18181B]"
+        showShadow={true}
+      >
+        <AddToken tokens={mockDataAll} />
+      </Modal>
+    </>
   );
 };
 

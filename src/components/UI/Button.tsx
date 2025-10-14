@@ -19,7 +19,8 @@ const Button: React.FC<ButtonProps> = ({
     "font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:pointer-events-none cursor-pointer";
 
   const variants: Record<string, string> = {
-    primary: "bg-accent text-text-black hover:bg-accent/90 focus:ring-accent",
+    primary:
+      "bg-accent text-text-black hover:bg-accent/90 focus:ring-accent shadow-[0_0_0_1px_#1F6619,0_1px_2px_0_#1F661966,inset_0_0.75px_0_0_#FFFFFF33]",
     secondary:
       "bg-surface text-text-default hover:bg-surface-contrast focus:ring-surface-contrast",
     outline:
