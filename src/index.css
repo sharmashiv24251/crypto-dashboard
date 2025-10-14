@@ -2,11 +2,14 @@
 
 /* Define custom colors */
 @theme {
+  --font-sans: "Inter", system-ui, sans-serif;
+
   --color-background: #212124;
   --color-surface: #27272a;
   --color-surface-contrast: #181818;
   --color-text-default: #f4f4f5;
   --color-text-muted: #A1A1AA;
+  --color-text-black: #18181B;
   --color-accent: #A9E851;
   --color-teal: #18C9DD;
   --color-purple: #A78BFA;
@@ -15,4 +18,12 @@
   --color-sparkline-green: #32CA5B;
   --color-sparkline-red: #FF3A33;
   --color-disabled: #52525B;
+}
+
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    font-optical-sizing: auto;
+  }
 }
