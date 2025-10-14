@@ -130,3 +130,97 @@ export const MoreIcon = () => {
     </svg>
   );
 };
+
+export const EditIcon = () => {
+  return (
+    <svg
+      width="15"
+      height="16"
+      viewBox="0 0 15 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M2.83331 13.5556C2.83331 13.5556 6.03242 13.0507 6.8742 12.2089C7.71598 11.3671 13.3871 5.696 13.3871 5.696C14.1311 4.952 14.1311 3.74578 13.3871 3.00267C12.6431 2.25867 11.4369 2.25867 10.6938 3.00267C10.6938 3.00267 5.02265 8.67378 4.18087 9.51556C3.33909 10.3573 2.8342 13.5564 2.8342 13.5564L2.83331 13.5556Z"
+        stroke="#A1A1AA"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M6.83332 2.44444H1.05554"
+        stroke="#A1A1AA"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M3.27776 5.55556H1.05554"
+        stroke="#A1A1AA"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  );
+};
+
+export const DeleteIcon = () => {
+  return (
+    <svg
+      width="15"
+      height="16"
+      viewBox="0 0 15 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <g clip-path="url(#clip0_6576_872)">
+        <path
+          d="M1.94446 3.77778H13.0556"
+          stroke="#FB7185"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M5.5 3.77778V2.44444C5.5 1.95378 5.89822 1.55556 6.38889 1.55556H8.61111C9.10178 1.55556 9.5 1.95378 9.5 2.44444V3.77778"
+          stroke="#FB7185"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M11.7222 6V12.6667C11.7222 13.6489 10.9267 14.4444 9.94444 14.4444H5.05555C4.07333 14.4444 3.27777 13.6489 3.27777 12.6667V6"
+          stroke="#FB7185"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M5.94446 7.77778V11.7778"
+          stroke="#FB7185"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M9.05554 7.77778V11.7778"
+          stroke="#FB7185"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </g>
+      <defs>
+        <clipPath id="clip0_6576_872">
+          <rect
+            width="15"
+            height="15"
+            fill="white"
+            transform="translate(0 0.5)"
+          />
+        </clipPath>
+      </defs>
+    </svg>
+  );
+};

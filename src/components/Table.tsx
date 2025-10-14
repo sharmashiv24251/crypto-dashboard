@@ -1,5 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AddIcon, RefreshIcon, StarIcon, MoreIcon } from "./svg-icons";
+import {
+  AddIcon,
+  RefreshIcon,
+  StarIcon,
+  MoreIcon,
+  EditIcon,
+  DeleteIcon,
+} from "./svg-icons";
 import Button from "./UI/Button";
 import useIsMobile from "../hooks/useIsMobile";
 
@@ -22,9 +29,7 @@ const mockDataAll: Token[] = [
     tag: "ETH",
     price: "$43,250.67",
     change24h: 2.3,
-    sparkline: [
-      100, 105, 103, 108, 110, 107, 112, 0, 1, 2, 3, 19, 20, 30, 60, 100, 200,
-    ],
+    sparkline: [100, 105, 103, 108, 110, 107, 112],
     holdings: "0.0500",
     value: "$2,162.53",
   },
@@ -159,97 +164,96 @@ const SparklineChart: React.FC<SparklineChartProps> = ({ data, positive }) => {
 
 type EditableHoldingsProps = {
   value: string;
-  onSave: (newVal: string) => void;
+  onChange: (v: string) => void;
+  onSave: () => void;
+  editing: boolean;
 };
 const EditableHoldings: React.FC<EditableHoldingsProps> = ({
   value,
+  onChange,
   onSave,
+  editing,
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value);
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => setEditValue(value), [value]);
-
+  const [val, setVal] = useState(value);
+  useEffect(() => setVal(value), [value]);
   useEffect(() => {
-    if (!isEditing) return;
-    function onDocClick(e: MouseEvent) {
-      if (
-        wrapperRef.current &&
-        !wrapperRef.current.contains(e.target as Node)
-      ) {
-        setIsEditing(false);
-        setEditValue(value);
-      }
-    }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [isEditing, value]);
-
-  const save = () => {
-    onSave(editValue);
-    setIsEditing(false);
-  };
-  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") save();
-    if (e.key === "Escape") {
-      setIsEditing(false);
-      setEditValue(value);
-    }
-  };
-
-  return (
-    <div ref={wrapperRef}>
-      {isEditing ? (
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            className="px-2 py-1 rounded bg-surface border border-accent text-text-default text-sm w-20"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onKeyDown={onKey}
-            autoFocus
-          />
-          <button
-            className="px-3 py-1 bg-accent rounded text-text-black text-sm"
-            onClick={save}
-          >
-            Save
-          </button>
-        </div>
-      ) : (
-        <span
-          className="text-text-default cursor-pointer text-sm"
-          onClick={() => setIsEditing(true)}
-        >
-          {value}
-        </span>
-      )}
+    if (!editing) setVal(value);
+  }, [editing, value]);
+  return editing ? (
+    <div className="flex items-center gap-3">
+      <input
+        value={val}
+        onChange={(e) => {
+          setVal(e.target.value);
+          onChange(e.target.value);
+        }}
+        className="w-[109px] h-[32px] px-[8px] py-[6px] rounded-[6px] border bg-surface-contrast text-text-default text-sm outline-none"
+        style={{
+          boxShadow: "0px 0px 0px 4px #A9E85133, 0px 0px 0px 1px #A9E851",
+          borderColor: "rgba(169,232,81,1)",
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSave();
+          if (e.key === "Escape") setVal(value);
+        }}
+      />
+      <button
+        onClick={onSave}
+        className="px-3 py-1 bg-accent rounded text-text-black text-sm"
+      >
+        Save
+      </button>
     </div>
+  ) : (
+    <span className="text-text-default text-sm">{value}</span>
   );
 };
 
 const WatchlistTable: React.FC = () => {
   const [data, setData] = useState<Token[]>(mockDataAll);
   const [currentPage, setCurrentPage] = useState(1);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState<string>("");
   const isMobile = useIsMobile();
   const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const endIndex = Math.min(startIndex + PAGE_SIZE, data.length);
   const currentData = data.slice(startIndex, endIndex);
   const cellWidth = isMobile ? "200px" : "206px";
+  const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [totalPages, currentPage]);
 
-  const handleHoldingsSave = (id: string, newHoldings: string) =>
-    setData((old) =>
-      old.map((r) => (r.id === id ? { ...r, holdings: newHoldings } : r))
-    );
+  const openMenu = (id: string) => {
+    setOpenMenuId((prev) => (prev === id ? null : id));
+    setEditingId(null);
+  };
 
-  const prev = () => setCurrentPage((p) => Math.max(1, p - 1));
-  const next = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
+  const startEditFromMenu = (id: string) => {
+    const token = data.find((t) => t.id === id);
+    setEditingValue(token ? token.holdings : "");
+    setEditingId(id);
+    setOpenMenuId(null);
+  };
+
+  const saveHoldings = () => {
+    if (!editingId) return;
+    setData((old) =>
+      old.map((r) =>
+        r.id === editingId ? { ...r, holdings: editingValue } : r
+      )
+    );
+    setEditingId(null);
+  };
+
+  const removeToken = (id: string) => {
+    setData((old) => old.filter((r) => r.id !== id));
+    setOpenMenuId(null);
+    if (editingId === id) setEditingId(null);
+  };
 
   return (
     <div className="w-full flex flex-col gap-4 items-center justify-center max-md:px-4">
@@ -280,7 +284,6 @@ const WatchlistTable: React.FC = () => {
 
       <div className="w-full rounded-2xl border border-[#FFFFFF14] overflow-hidden">
         <style>{`.hide-scrollbar::-webkit-scrollbar{display:none;}`}</style>
-
         <div
           className="overflow-x-auto hide-scrollbar"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
@@ -303,68 +306,136 @@ const WatchlistTable: React.FC = () => {
             </div>
 
             <div className="bg-transparent py-3">
-              {currentData.map((token) => (
-                <div
-                  key={token.id}
-                  className="flex items-center h-12 hover:bg-surface transition-colors px-6"
-                >
-                  <div className="flex items-center gap-3">
-                    <TableCell width={cellWidth}>
-                      <TokenName
-                        imgUrl={token.imgUrl}
-                        name={token.name}
-                        tag={token.tag}
-                      />
-                    </TableCell>
+              {currentData.map((token) => {
+                const isActive =
+                  openMenuId === token.id || editingId === token.id;
+                return (
+                  <div
+                    key={token.id}
+                    className={`flex items-center h-12 hover:bg-surface transition-colors px-6 ${
+                      isActive ? "bg-surface" : ""
+                    }`}
+                    style={{ position: "relative" }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <TableCell width={cellWidth}>
+                        <TokenName
+                          imgUrl={token.imgUrl}
+                          name={token.name}
+                          tag={token.tag}
+                        />
+                      </TableCell>
 
-                    <TableCell
-                      width={cellWidth}
-                      className="text-text-muted text-sm"
-                    >
-                      {token.price}
-                    </TableCell>
+                      <TableCell
+                        width={cellWidth}
+                        className="text-text-muted text-sm"
+                      >
+                        {token.price}
+                      </TableCell>
 
-                    <TableCell
-                      width={cellWidth}
-                      className={`text-sm ${
-                        token.change24h >= 0
-                          ? "text-sparkline-green"
-                          : "text-sparkline-red"
-                      }`}
-                    >
-                      {token.change24h >= 0 ? "+" : ""}
-                      {token.change24h.toFixed(2)}%
-                    </TableCell>
+                      <TableCell
+                        width={cellWidth}
+                        className={`text-sm ${
+                          token.change24h >= 0
+                            ? "text-sparkline-green"
+                            : "text-sparkline-red"
+                        }`}
+                      >
+                        {token.change24h >= 0 ? "+" : ""}
+                        {token.change24h.toFixed(2)}%
+                      </TableCell>
 
-                    <TableCell width={cellWidth}>
-                      <SparklineChart
-                        data={token.sparkline}
-                        positive={token.change24h >= 0}
-                      />
-                    </TableCell>
+                      <TableCell width={cellWidth}>
+                        <SparklineChart
+                          data={token.sparkline}
+                          positive={token.change24h >= 0}
+                        />
+                      </TableCell>
 
-                    <TableCell width={cellWidth}>
-                      <EditableHoldings
-                        value={token.holdings}
-                        onSave={(v) => handleHoldingsSave(token.id, v)}
-                      />
-                    </TableCell>
+                      <TableCell width={cellWidth}>
+                        <EditableHoldings
+                          value={token.holdings}
+                          onChange={(v) => setEditingValue(v)}
+                          onSave={saveHoldings}
+                          editing={editingId === token.id}
+                        />
+                      </TableCell>
 
-                    <TableCell
-                      width={cellWidth}
-                      className="text-text-default text-sm"
-                    >
-                      {token.value}
-                    </TableCell>
+                      <TableCell
+                        width={cellWidth}
+                        className="text-text-default text-sm"
+                      >
+                        {token.value}
+                      </TableCell>
 
-                    <TableCell width="28px" className="text-text-muted">
-                      <button aria-label="actions">
-                        <MoreIcon />
-                      </button>
-                    </TableCell>
+                      <TableCell width="28px" className="text-text-muted">
+                        <button
+                          aria-label="actions"
+                          onClick={() => openMenu(token.id)}
+                          className="cursor-pointer"
+                        >
+                          <MoreIcon />
+                        </button>
+                      </TableCell>
+                    </div>
+
+                    {openMenuId === token.id && (
+                      <div
+                        ref={(el) => {
+                          menuRefs.current[token.id] = el;
+                        }}
+                        style={{
+                          position: "absolute",
+                          right: 12,
+                          top: 40,
+                          zIndex: 40,
+                        }}
+                      >
+                        <div
+                          className="bg-surface rounded-md p-1"
+                          style={{ borderRadius: 8 }}
+                        >
+                          <div className="flex flex-col">
+                            <button
+                              className="flex items-center gap-2 px-1 py-0 justify-start"
+                              style={{ width: 136, height: 28, padding: 4 }}
+                              onClick={() => startEditFromMenu(token.id)}
+                            >
+                              <div className="p-1">
+                                <EditIcon />
+                              </div>
+                              <div className="text-text-muted text-[13px]">
+                                Edit Holdings
+                              </div>
+                            </button>
+                            <div
+                              style={{
+                                height: 1,
+                                background: "rgba(255,255,255,0.08)",
+                              }}
+                            />
+                            <button
+                              className="flex items-center gap-2 px-1 py-0 justify-start"
+                              style={{ width: 136, height: 28, padding: 4 }}
+                              onClick={() => removeToken(token.id)}
+                            >
+                              <div className="p-1">
+                                <DeleteIcon />
+                              </div>
+                              <div
+                                className="text-[13px]"
+                                style={{ color: "#FDA4AF" }}
+                              >
+                                Remove
+                              </div>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -379,14 +450,14 @@ const WatchlistTable: React.FC = () => {
             </span>
             <button
               className="px-3 py-1 rounded-full text-text-muted hover:bg-surface transition disabled:opacity-40"
-              onClick={prev}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
             >
               Prev
             </button>
             <button
               className="px-3 py-1 rounded-full text-text-muted hover:bg-surface transition disabled:opacity-40"
-              onClick={next}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
             >
               Next
