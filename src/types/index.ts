@@ -1,5 +1,3 @@
-// types/index.ts
-
 // Base coin interface used across multiple endpoints
 export interface BaseCoin {
     id: string

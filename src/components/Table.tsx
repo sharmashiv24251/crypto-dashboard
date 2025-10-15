@@ -334,6 +334,19 @@ const WatchlistTable: React.FC = () => {
                 </div>
               </div>
 
+              {currentData.length === 0 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                  }}
+                  className="text-text-muted text-sm mt-[125px]"
+                >
+                  No Holdings, Please add some tokens to your portfolio
+                </div>
+              )}
+
               <div className="bg-transparent py-3">
                 {currentData.map((token) => {
                   const isActive =

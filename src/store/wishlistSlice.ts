@@ -1,4 +1,3 @@
-// src/store/wishlistSlice.ts
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { CoinWithSparkline } from "../types/index";
 import { DEFAULT_COINS, DEFAULT_HOLDINGS } from "../../constants";

@@ -1,4 +1,3 @@
-// src/components/AddToken.tsx
 import React, {
   useMemo,
   useRef,
