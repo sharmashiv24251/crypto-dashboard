@@ -1,3 +1,5 @@
+import type { CoinWithSparkline } from "./src/types";
+
 // --- DEFAULT PREFILL DATA (from your payload)
 export const DEFAULT_COINS: CoinWithSparkline[] = [
     {

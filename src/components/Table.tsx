@@ -163,7 +163,7 @@ const WatchlistTable: React.FC = () => {
   const cellWidth = isMobile ? "200px" : "206px";
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const { data: fullData, refetch, isFetching } = useCoinsByIds(wishlistIds);
+  const { data: fullData, refetch } = useCoinsByIds(wishlistIds);
 
   useEffect(() => {
     if (fullData) {
@@ -205,12 +205,6 @@ const WatchlistTable: React.FC = () => {
     setEditingValue(token ? token.holdings : "");
     setEditingId(id);
     setOpenMenuId(null);
-  };
-
-  const saveHoldings = () => {
-    if (!editingId) return;
-    dispatch(updateHoldings({ id: editingId, holdings: editingValue }));
-    setEditingId(null);
   };
 
   const removeToken = (id: string) => {
