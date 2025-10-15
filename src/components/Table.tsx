@@ -440,9 +440,13 @@ const WatchlistTable: React.FC = () => {
               {startIndex + 1} — {endIndex} of {data.length} results
             </div>
             <div className="flex items-center gap-3 text-sm">
-              <span className="text-text-muted">
-                {currentPage} of {totalPages} pages
-              </span>
+              {isMobile ? (
+                <></>
+              ) : (
+                <span className="text-text-muted">
+                  {currentPage} of {totalPages} pages
+                </span>
+              )}
               <button
                 className="px-3 py-1 rounded-full text-text-muted hover:bg-surface transition disabled:opacity-40"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}

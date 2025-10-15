@@ -22,7 +22,7 @@ const Button: React.FC<ButtonProps> = ({
     primary:
       "bg-accent text-text-black hover:bg-accent/90 focus:ring-accent shadow-[0_0_0_1px_#1F6619,0_1px_2px_0_#1F661966,inset_0_0.75px_0_0_#FFFFFF33]",
     secondary:
-      "bg-surface text-text-default hover:bg-surface-contrast focus:ring-surface-contrast",
+      "bg-surface text-text-default hover:bg-surface-contrast focus:ring-surface-contrast shadow-[0_0_0_1px_#00000014,_0_1px_2px_0_#0000001F]",
     outline:
       "border border-accent text-accent bg-transparent hover:bg-accent/10 focus:ring-accent",
   };
