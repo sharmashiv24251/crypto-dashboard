@@ -103,6 +103,7 @@ type EditableHoldingsProps = {
   onSave: () => void;
   editing: boolean;
 };
+
 const EditableHoldings: React.FC<EditableHoldingsProps> = ({
   value,
   onChange,
@@ -110,13 +111,28 @@ const EditableHoldings: React.FC<EditableHoldingsProps> = ({
   editing,
 }) => {
   const [val, setVal] = useState(value);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => setVal(value), [value]);
   useEffect(() => {
     if (!editing) setVal(value);
   }, [editing, value]);
+
+  // Focus + select the input when editing becomes true
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
   return editing ? (
-    <div className="flex items-center gap-3">
+    <div
+      className="flex items-center gap-3"
+      onClick={(e) => e.stopPropagation()}
+    >
       <input
+        ref={inputRef}
         type="number"
         step="any"
         value={val}
@@ -135,7 +151,10 @@ const EditableHoldings: React.FC<EditableHoldingsProps> = ({
         }}
       />
       <button
-        onClick={onSave}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSave();
+        }}
         className="px-3 py-1 bg-accent rounded text-text-black text-sm"
       >
         Save
