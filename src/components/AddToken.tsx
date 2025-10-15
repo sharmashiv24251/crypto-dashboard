@@ -1,62 +1,128 @@
-import React, { useState } from "react";
+// src/components/AddToken.tsx
+import React, {
+  useMemo,
+  useRef,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import { TokenName } from "./UI/TokenName";
 import Button from "./UI/Button";
 import { StarIcon } from "./svg-icons";
 import useIsMobile from "../hooks/useIsMobile";
+import useDebouncedValue from "../hooks/useDebouncedValue";
+import { useInfiniteCoins, useSearchCoins } from "../hooks/useCoins";
 
-type Token = {
-  id: string;
-  imgUrl?: string;
-  name: string;
-  tag: string;
-  price: string;
-  change24h: number;
-  sparkline: number[];
-  holdings: string;
-  value: string;
-};
+const PER_PAGE = 12;
+const BOTTOM_BAR_HEIGHT = 56; // px
+const SEARCH_FIELD_HEIGHT = 52; // px
 
-type AddTokenProps = {
-  tokens: Token[];
-};
-
-const AddToken: React.FC<AddTokenProps> = ({ tokens }) => {
+const AddToken: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set());
   const isMobile = useIsMobile();
+  const debouncedQuery = useDebouncedValue(searchQuery, 600);
 
-  // Filter tokens based on search query
-  const filteredTokens = tokens.filter(
-    (token) =>
-      token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      token.tag.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Infinite query (trending/markets)
+  const {
+    data: infiniteData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: infiniteLoading,
+    error: infiniteError,
+    refetch: refetchInfinite,
+  } = useInfiniteCoins(PER_PAGE);
 
-  // Toggle token selection
+  // Search results
+  const {
+    data: searchData,
+    isLoading: searchLoading,
+    error: searchError,
+    refetch: refetchSearch,
+  } = useSearchCoins(debouncedQuery?.trim() ? debouncedQuery : null);
+
+  // flatten pages
+  const infiniteCoins = useMemo(() => {
+    if (!infiniteData || !infiniteData.pages) return [];
+    return infiniteData.pages.flatMap((p) => p.data ?? []);
+  }, [infiniteData]);
+
+  const showingSearch = Boolean(debouncedQuery?.trim());
+  const coins = showingSearch ? searchData ?? [] : infiniteCoins;
+
+  // Show full-screen loader only when we have no items at all.
+  const isInitialInfiniteLoad =
+    !showingSearch && infiniteLoading && infiniteCoins.length === 0;
+  const loading = showingSearch ? searchLoading : isInitialInfiniteLoad;
+  const error = showingSearch ? searchError : infiniteError;
+
   const toggleToken = (id: string) => {
     setSelectedTokens((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
+      newSet.has(id) ? newSet.delete(id) : newSet.add(id);
       return newSet;
     });
   };
 
+  // sentinel for intersection observer
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const first = entries[0];
+      if (first?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    },
+    [fetchNextPage, hasNextPage, isFetchingNextPage]
+  );
+
+  // Attach observer whenever sentinel ref changes or when infinite list is showing.
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || showingSearch) return; // only attach when infinite list is visible
+
+    const observer = new IntersectionObserver(handleObserver, {
+      root: null,
+      rootMargin: "400px",
+      threshold: 0.1,
+    });
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, [handleObserver, showingSearch, sentinelRef.current]); // re-run when sentinel mounted/unmounted
+
+  // When toggling search: refetch search or ensure infinite has initial data
+  useEffect(() => {
+    if (showingSearch) {
+      refetchSearch?.();
+    } else {
+      refetchInfinite?.();
+      if (infiniteCoins.length === 0) {
+        fetchNextPage?.(); // safe-guard: ensure first page present
+      }
+    }
+    // only depend on showingSearch intentionally
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showingSearch]);
+
+  // scrollable area height calculation so search (fixed) + bottom bar (fixed) remain
+  const totalHeight = isMobile ? 500 : 432;
+  const scrollableHeight = `${
+    totalHeight - SEARCH_FIELD_HEIGHT - BOTTOM_BAR_HEIGHT
+  }px`;
+
   return (
     <div
       className="flex flex-col w-full bg-background"
-      style={{ height: isMobile ? "500px" : "432px" }}
+      style={{ height: isMobile ? 500 : 432 }}
     >
-      {/* Search Field */}
+      {/* SEARCH FIELD FIXED (outside scroll area) */}
       <div
-        className="flex-shrink-0 rounded-t-lg "
+        className="flex-shrink-0 rounded-t-lg"
         style={{
-          height: "52px",
-          paddingTop: "0px",
-          paddingBottom: "0px",
+          height: `${SEARCH_FIELD_HEIGHT}px`,
           borderColor: "rgba(255, 255, 255, 0.08)",
           borderWidth: "1px",
         }}
@@ -70,85 +136,126 @@ const AddToken: React.FC<AddTokenProps> = ({ tokens }) => {
         />
       </div>
 
-      {/* Trending Label */}
-      <div className="flex-shrink-0 pl-2 pt-3">
-        <span
-          className="text-text-muted font-medium pl-2"
-          style={{ fontSize: "12px" }}
-        >
-          Trending
-        </span>
-      </div>
-
-      {/* Scrollable Token List */}
+      {/* SCROLLABLE AREA: contains label (Trending/Search results) + list */}
       <div
-        className="flex-1 overflow-y-auto"
+        className="overflow-y-auto no-scrollbar"
         style={{
-          height: isMobile
-            ? "calc(500px - 52px - 56px)"
-            : "calc(432px - 52px - 56px)",
+          height: scrollableHeight,
         }}
       >
-        {filteredTokens.map((token) => {
-          const isSelected = selectedTokens.has(token.id);
-          return (
-            <div
-              key={token.id}
-              onClick={() => toggleToken(token.id)}
-              className={`flex items-center justify-between w-full p-2 cursor-pointer transition-colors ${
-                isSelected ? "bg-accent/[0.06]" : "hover:bg-accent/[0.06]"
-              }`}
-            >
-              {/* Left: Token Name */}
-              <div className="pl-2">
-                <TokenName
-                  imgUrl={token.imgUrl}
-                  name={token.name}
-                  tag={token.tag}
-                  isModal={true}
-                />
-              </div>
+        {/* LABEL INSIDE scroll so it scrolls away */}
+        <div className="pl-2 pt-3">
+          <span
+            className="text-text-muted font-medium pl-2"
+            style={{ fontSize: 12 }}
+          >
+            {showingSearch ? "Search results" : "Trending"}
+          </span>
+        </div>
 
-              {/* Right: Checkbox */}
-              <div className="flex items-center gap-4">
-                {isSelected && <StarIcon />}
+        {/* CONTENT */}
+        {loading ? (
+          <div className="flex items-center justify-center h-full text-text-muted">
+            Loading...
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-full text-text-muted">
+            <div>Error loading coins.</div>
+            <div className="mt-2 text-sm">
+              {String((error as Error).message)}
+            </div>
+          </div>
+        ) : coins.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-text-muted">
+            No results
+          </div>
+        ) : (
+          <>
+            {coins.map((coin: any) => {
+              const id = coin.id;
+              const name = coin.name;
+              const symbol = coin.symbol?.toUpperCase();
+              const img =
+                coin.image || coin.large || coin.thumb || coin.icon || "";
+
+              const isSelected = selectedTokens.has(id);
+              return (
                 <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                    isSelected
-                      ? "bg-accent border-accent"
-                      : "border-white/20 bg-transparent"
+                  key={id}
+                  onClick={() => toggleToken(id)}
+                  className={`flex items-center justify-between w-full p-2 cursor-pointer transition-colors ${
+                    isSelected ? "bg-accent/[0.06]" : "hover:bg-accent/[0.06]"
                   }`}
                 >
-                  {isSelected && (
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
+                  <div className="pl-2">
+                    <TokenName imgUrl={img} name={name} tag={symbol} isModal />
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    {isSelected && <StarIcon />}
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                        isSelected
+                          ? "bg-accent border-accent"
+                          : "border-white/20 bg-transparent"
+                      }`}
                     >
-                      <path
-                        d="M10 3L4.5 8.5L2 6"
-                        stroke="black"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  )}
+                      {isSelected && (
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M10 3L4.5 8.5L2 6"
+                            stroke="black"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          );
-        })}
+              );
+            })}
+
+            {/* sentinel + next-page indicator only for infinite mode */}
+            {!showingSearch && (
+              <>
+                <div ref={sentinelRef} className="w-full h-2" aria-hidden />
+                {isFetchingNextPage && (
+                  <div className="flex items-center justify-center py-3 text-text-muted">
+                    Loading more...
+                  </div>
+                )}
+                {!hasNextPage && (
+                  <div className="flex items-center justify-center py-3 text-text-muted text-sm">
+                    You've reached the end
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
       </div>
 
-      {/* Bottom Action Bar */}
+      {/* Bottom action bar fixed */}
       <div
         className="flex-shrink-0 flex justify-end items-center gap-2 bg-surface border-t border-white/10"
-        style={{ height: "56px" }}
+        style={{ height: BOTTOM_BAR_HEIGHT }}
       >
-        <Button size="lg" variant="primary" className="mr-4">
+        <Button
+          size="lg"
+          variant="primary"
+          className="mr-4"
+          onClick={() => {
+            console.log("Add to wishlist:", Array.from(selectedTokens));
+          }}
+        >
           Add to Wishlist
         </Button>
       </div>
