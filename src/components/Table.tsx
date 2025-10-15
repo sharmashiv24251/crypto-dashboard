@@ -1,3 +1,4 @@
+// src/components/WatchlistTable.tsx
 import React, { useEffect, useRef, useState } from "react";
 import {
   AddIcon,
@@ -12,6 +13,14 @@ import useIsMobile from "../hooks/useIsMobile";
 import { TokenName } from "./UI/TokenName";
 import Modal from "./UI/Modal";
 import AddToken from "./AddToken";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import {
+  updateHoldings,
+  removeId,
+  setCoinsData,
+  refreshPrices,
+} from "../store/wishlistSlice";
+import { useCoinsByIds } from "../hooks/useCoins";
 
 type Token = {
   id: string;
@@ -24,69 +33,6 @@ type Token = {
   holdings: string;
   value: string;
 };
-
-const mockDataAll: Token[] = [
-  {
-    id: "1",
-    name: "Ethereum",
-    tag: "ETH",
-    price: "$43,250.67",
-    change24h: 2.3,
-    sparkline: [100, 105, 103, 108, 110, 107, 112],
-    holdings: "0.0500",
-    value: "$2,162.53",
-  },
-  {
-    id: "2",
-    name: "Bitcoin",
-    tag: "BTC",
-    price: "$2,654.32",
-    change24h: -1.2,
-    sparkline: [100, 98, 95, 97, 94, 92, 90],
-    holdings: "2.5000",
-    value: "$6,635.80",
-  },
-  {
-    id: "3",
-    name: "Solana",
-    tag: "SOL",
-    price: "$98.45",
-    change24h: 4.7,
-    sparkline: [100, 102, 104, 103, 107, 109, 110],
-    holdings: "2.5000",
-    value: "$1,476.75",
-  },
-  {
-    id: "4",
-    name: "Dogecoin",
-    tag: "DOGE",
-    price: "$43,250.67",
-    change24h: 2.3,
-    sparkline: [100, 103, 105, 104, 106, 108, 107],
-    holdings: "0.0500",
-    value: "$2,162.53",
-  },
-  {
-    id: "5",
-    name: "USDC",
-    tag: "USDC",
-    price: "$2,654.32",
-    change24h: -1.2,
-    sparkline: [100, 99, 97, 98, 96, 95, 94],
-    holdings: "2.5000",
-    value: "$6,635.80",
-  },
-  {
-    id: "6",
-    name: "Stellar",
-    tag: "XLM",
-    price: "$98.45",
-    change24h: 4.7,
-    sparkline: [100, 101, 103, 105, 106, 108, 109],
-    holdings: "15.0000",
-    value: "$1,476.75",
-  },
-];
 
 const PAGE_SIZE = 6;
 
@@ -199,19 +145,36 @@ const EditableHoldings: React.FC<EditableHoldingsProps> = ({
 };
 
 const WatchlistTable: React.FC = () => {
-  const [data, setData] = useState<Token[]>(mockDataAll);
+  const dispatch = useAppDispatch();
+  const wishlistIds = useAppSelector((s) => s.wishlist.ids);
+  const entities = useAppSelector((s) => s.wishlist.entities);
   const [currentPage, setCurrentPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const isMobile = useIsMobile();
-  const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(wishlistIds.length / PAGE_SIZE));
   const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const endIndex = Math.min(startIndex + PAGE_SIZE, data.length);
-  const currentData = data.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + PAGE_SIZE, wishlistIds.length);
+  const currentIds = wishlistIds.slice(startIndex, endIndex);
   const cellWidth = isMobile ? "200px" : "206px";
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const { data: fullData, refetch, isFetching } = useCoinsByIds(wishlistIds);
+
+  useEffect(() => {
+    if (fullData) {
+      dispatch(setCoinsData(fullData));
+    }
+  }, [fullData, dispatch]);
+
+  const refresh = async () => {
+    const res = await refetch();
+    if (res?.data) {
+      dispatch(refreshPrices(res.data as any));
+    }
+  };
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -223,7 +186,7 @@ const WatchlistTable: React.FC = () => {
   };
 
   const startEditFromMenu = (id: string) => {
-    const token = data.find((t) => t.id === id);
+    const token = entities[id] as any;
     setEditingValue(token ? token.holdings : "");
     setEditingId(id);
     setOpenMenuId(null);
@@ -231,19 +194,54 @@ const WatchlistTable: React.FC = () => {
 
   const saveHoldings = () => {
     if (!editingId) return;
-    setData((old) =>
-      old.map((r) =>
-        r.id === editingId ? { ...r, holdings: editingValue } : r
-      )
-    );
+    dispatch(updateHoldings({ id: editingId, holdings: editingValue }));
     setEditingId(null);
   };
 
   const removeToken = (id: string) => {
-    setData((old) => old.filter((r) => r.id !== id));
+    dispatch(removeId(id));
     setOpenMenuId(null);
     if (editingId === id) setEditingId(null);
   };
+
+  const currentData = currentIds.map((id) => {
+    const e = entities[id];
+    if (!e)
+      return {
+        id,
+        name: id,
+        tag: id.toUpperCase(),
+        price: "$0.00",
+        change24h: 0,
+        sparkline: [0],
+        holdings: "0",
+        value: "$0.00",
+        imgUrl: undefined,
+      };
+    return {
+      id: e.id,
+      name: e.name ?? e.id,
+      tag: (e.symbol ?? "").toUpperCase(),
+      price:
+        e.current_price != null
+          ? `$${Number(e.current_price).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`
+          : "$0.00",
+      change24h: e.price_change_percentage_24h ?? 0,
+      sparkline: e.sparkline_in_7d?.price ?? [0],
+      holdings: e.holdings ?? "0",
+      value:
+        e.value != null
+          ? `$${Number(e.value).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`
+          : "$0.00",
+      imgUrl: e.image,
+    } as Token;
+  });
 
   return (
     <>
@@ -258,6 +256,7 @@ const WatchlistTable: React.FC = () => {
               size="lg"
               variant="secondary"
               className={isMobile ? "h-9 w-9" : ""}
+              onClick={refresh}
             >
               <div className="flex flex-row items-center gap-2">
                 <RefreshIcon />
@@ -283,7 +282,7 @@ const WatchlistTable: React.FC = () => {
             className="overflow-x-auto hide-scrollbar"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
-            <div style={{ minWidth: "max-content" }}>
+            <div className="min-h-[350px]" style={{ minWidth: "max-content" }}>
               <div className="bg-surface flex items-center h-12 border-b border-[#FFFFFF14] px-6">
                 <div className="flex items-center gap-3">
                   <TableHeaderCell width={cellWidth}>Token</TableHeaderCell>
@@ -351,7 +350,16 @@ const WatchlistTable: React.FC = () => {
                           <EditableHoldings
                             value={token.holdings}
                             onChange={(v) => setEditingValue(v)}
-                            onSave={saveHoldings}
+                            onSave={() => {
+                              if (!editingId) return;
+                              dispatch(
+                                updateHoldings({
+                                  id: editingId,
+                                  holdings: editingValue,
+                                })
+                              );
+                              setEditingId(null);
+                            }}
                             editing={editingId === token.id}
                           />
                         </TableCell>
@@ -437,7 +445,7 @@ const WatchlistTable: React.FC = () => {
 
           <div className="bg-transparent px-6 flex items-center justify-between h-12 border-t border-[#FFFFFF14]">
             <div className="text-text-muted text-sm">
-              {startIndex + 1} — {endIndex} of {data.length} results
+              {startIndex + 1} — {endIndex} of {wishlistIds.length} results
             </div>
             <div className="flex items-center gap-3 text-sm">
               {isMobile ? (
@@ -476,7 +484,7 @@ const WatchlistTable: React.FC = () => {
         modalClassName="relative z-50 rounded-xl overflow-hidden w-full max-w-[640px] max-sm:mx-4 bg-background shadow-[0_8px_16px_0_#00000052,0_4px_8px_0_#00000052,0_0_0_1px_#FFFFFF1A,0_-1px_0_0_#FFFFFF0A,inset_0_0_0_1.5px_#FFFFFF0F,inset_0_0_0_1px_#18181B]"
         showShadow={true}
       >
-        <AddToken tokens={mockDataAll} />
+        <AddToken />
       </Modal>
     </>
   );

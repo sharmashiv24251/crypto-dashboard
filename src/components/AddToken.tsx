@@ -12,6 +12,8 @@ import { StarIcon } from "./svg-icons";
 import useIsMobile from "../hooks/useIsMobile";
 import useDebouncedValue from "../hooks/useDebouncedValue";
 import { useInfiniteCoins, useSearchCoins } from "../hooks/useCoins";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { addId, removeId } from "../store/wishlistSlice";
 
 const PER_PAGE = 12;
 const BOTTOM_BAR_HEIGHT = 56; // px
@@ -19,11 +21,12 @@ const SEARCH_FIELD_HEIGHT = 52; // px
 
 const AddToken: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set());
   const isMobile = useIsMobile();
   const debouncedQuery = useDebouncedValue(searchQuery, 600);
+  const dispatch = useAppDispatch();
+  const wishlistIds = useAppSelector((s) => s.wishlist.ids);
+  const selectedSet = useMemo(() => new Set(wishlistIds), [wishlistIds]);
 
-  // Infinite query (trending/markets)
   const {
     data: infiniteData,
     fetchNextPage,
@@ -34,7 +37,6 @@ const AddToken: React.FC = () => {
     refetch: refetchInfinite,
   } = useInfiniteCoins(PER_PAGE);
 
-  // Search results
   const {
     data: searchData,
     isLoading: searchLoading,
@@ -42,7 +44,6 @@ const AddToken: React.FC = () => {
     refetch: refetchSearch,
   } = useSearchCoins(debouncedQuery?.trim() ? debouncedQuery : null);
 
-  // flatten pages
   const infiniteCoins = useMemo(() => {
     if (!infiniteData || !infiniteData.pages) return [];
     return infiniteData.pages.flatMap((p) => p.data ?? []);
@@ -51,21 +52,16 @@ const AddToken: React.FC = () => {
   const showingSearch = Boolean(debouncedQuery?.trim());
   const coins = showingSearch ? searchData ?? [] : infiniteCoins;
 
-  // Show full-screen loader only when we have no items at all.
   const isInitialInfiniteLoad =
     !showingSearch && infiniteLoading && infiniteCoins.length === 0;
   const loading = showingSearch ? searchLoading : isInitialInfiniteLoad;
   const error = showingSearch ? searchError : infiniteError;
 
   const toggleToken = (id: string) => {
-    setSelectedTokens((prev) => {
-      const newSet = new Set(prev);
-      newSet.has(id) ? newSet.delete(id) : newSet.add(id);
-      return newSet;
-    });
+    if (selectedSet.has(id)) dispatch(removeId(id));
+    else dispatch(addId(id));
   };
 
-  // sentinel for intersection observer
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const handleObserver = useCallback(
@@ -78,36 +74,30 @@ const AddToken: React.FC = () => {
     [fetchNextPage, hasNextPage, isFetchingNextPage]
   );
 
-  // Attach observer whenever sentinel ref changes or when infinite list is showing.
   useEffect(() => {
     const node = sentinelRef.current;
-    if (!node || showingSearch) return; // only attach when infinite list is visible
-
+    if (!node || showingSearch) return;
     const observer = new IntersectionObserver(handleObserver, {
       root: null,
       rootMargin: "400px",
       threshold: 0.1,
     });
     observer.observe(node);
-
     return () => observer.disconnect();
-  }, [handleObserver, showingSearch, sentinelRef.current]); // re-run when sentinel mounted/unmounted
+  }, [handleObserver, showingSearch, sentinelRef.current]);
 
-  // When toggling search: refetch search or ensure infinite has initial data
   useEffect(() => {
     if (showingSearch) {
       refetchSearch?.();
     } else {
       refetchInfinite?.();
       if (infiniteCoins.length === 0) {
-        fetchNextPage?.(); // safe-guard: ensure first page present
+        fetchNextPage?.();
       }
     }
-    // only depend on showingSearch intentionally
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showingSearch]);
 
-  // scrollable area height calculation so search (fixed) + bottom bar (fixed) remain
   const totalHeight = isMobile ? 500 : 432;
   const scrollableHeight = `${
     totalHeight - SEARCH_FIELD_HEIGHT - BOTTOM_BAR_HEIGHT
@@ -118,7 +108,6 @@ const AddToken: React.FC = () => {
       className="flex flex-col w-full bg-background"
       style={{ height: isMobile ? 500 : 432 }}
     >
-      {/* SEARCH FIELD FIXED (outside scroll area) */}
       <div
         className="flex-shrink-0 rounded-t-lg"
         style={{
@@ -136,14 +125,12 @@ const AddToken: React.FC = () => {
         />
       </div>
 
-      {/* SCROLLABLE AREA: contains label (Trending/Search results) + list */}
       <div
         className="overflow-y-auto no-scrollbar"
         style={{
           height: scrollableHeight,
         }}
       >
-        {/* LABEL INSIDE scroll so it scrolls away */}
         <div className="pl-2 pt-3">
           <span
             className="text-text-muted font-medium pl-2"
@@ -153,7 +140,6 @@ const AddToken: React.FC = () => {
           </span>
         </div>
 
-        {/* CONTENT */}
         {loading ? (
           <div className="flex items-center justify-center h-full text-text-muted">
             Loading...
@@ -177,8 +163,7 @@ const AddToken: React.FC = () => {
               const symbol = coin.symbol?.toUpperCase();
               const img =
                 coin.image || coin.large || coin.thumb || coin.icon || "";
-
-              const isSelected = selectedTokens.has(id);
+              const isSelected = selectedSet.has(id);
               return (
                 <div
                   key={id}
@@ -223,7 +208,6 @@ const AddToken: React.FC = () => {
               );
             })}
 
-            {/* sentinel + next-page indicator only for infinite mode */}
             {!showingSearch && (
               <>
                 <div ref={sentinelRef} className="w-full h-2" aria-hidden />
@@ -243,7 +227,6 @@ const AddToken: React.FC = () => {
         )}
       </div>
 
-      {/* Bottom action bar fixed */}
       <div
         className="flex-shrink-0 flex justify-end items-center gap-2 bg-surface border-t border-white/10"
         style={{ height: BOTTOM_BAR_HEIGHT }}
@@ -253,7 +236,7 @@ const AddToken: React.FC = () => {
           variant="primary"
           className="mr-4"
           onClick={() => {
-            console.log("Add to wishlist:", Array.from(selectedTokens));
+            console.log("Add to wishlist:", wishlistIds);
           }}
         >
           Add to Wishlist
