@@ -1,4 +1,3 @@
-// src/components/Header.tsx
 import React, { useMemo } from "react";
 import HeaderChart from "./HeaderChart";
 import PortfolioValue from "./PortfolioValue";
@@ -27,16 +26,26 @@ const Header: React.FC = () => {
   }, [coinEntries]);
 
   // derive last updated from coins' last_updated (ISO strings) if available
+  // Use a single reduce loop to find the max timestamp (safer & clearer)
   const lastUpdated = useMemo(() => {
-    const dates = Object.values(entities)
+    const maxTs = Object.values(entities)
       .filter(Boolean)
-      .map((c: any) => c?.last_updated)
-      .filter(Boolean)
-      .map((s: string) => new Date(s).getTime())
-      .filter((t: number) => Number.isFinite(t));
-    if (dates.length === 0) return null;
-    const max = Math.max(...dates);
-    return new Date(max).toLocaleTimeString();
+      .reduce((max: number, c: any) => {
+        const s = c?.last_updated;
+        if (!s) return max;
+        const t = Date.parse(s);
+        if (!Number.isFinite(t)) return max;
+        return Math.max(max, t);
+      }, 0);
+
+    if (!maxTs) return null;
+    // Format with locale string (includes date + time)
+    return new Date(maxTs).toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
   }, [entities]);
 
   // build slices for chart: label + numeric value

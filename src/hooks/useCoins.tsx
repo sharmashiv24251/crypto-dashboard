@@ -49,8 +49,8 @@ export const useCoinsByIds = (ids: string[] | undefined) => {
       return res;
     },
     enabled: Boolean(ids && ids.length > 0),
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 10,
+    staleTime: 1000,
+    // gcTime: 1000 * 60 * 10,
   });
 };
 

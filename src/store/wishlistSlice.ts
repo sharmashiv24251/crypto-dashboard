@@ -6,6 +6,7 @@ import { DEFAULT_COINS, DEFAULT_HOLDINGS } from "../../constants";
 type StoredCoin = CoinWithSparkline & {
   holdings: string;
   value: number | null;
+  last_updated?: string; // <-- added
 };
 
 type WishlistState = {
@@ -86,13 +87,6 @@ const buildInitialState = (): WishlistState => {
 };
 
 /* ---------- Decide initial state (seed-once behavior) ---------- */
-/*
-  Rules:
-  - If there's a persisted state in localStorage, use it.
-  - Else if there's NO cookie flag set (first visit), seed from constants, save to localStorage and set the cookie.
-  - Else (cookie is set but localStorage absent) -> do NOT reseed; return an empty state (no constants).
-    This prevents constants from being reintroduced after the first visit.
-*/
 
 const getInitialState = (): WishlistState => {
   const persisted = loadFromLocalStorage();
@@ -141,12 +135,14 @@ const wishlistSlice = createSlice({
       saveToLocalStorage(state);
     },
     setCoinsData(state, action: PayloadAction<(CoinWithSparkline | null)[]>) {
+      const now = new Date().toISOString();
       action.payload.forEach((c) => {
         if (!c) return;
         const prev = state.entities[c.id] ?? null;
         const holdings = prev?.holdings ?? "0";
         const value = recalcValue(c, holdings);
-        state.entities[c.id] = { ...(c as CoinWithSparkline), holdings, value };
+        // stamp last_updated to now (we refreshed/received fresh data)
+        state.entities[c.id] = { ...(c as CoinWithSparkline), holdings, value, last_updated: now };
         if (!state.ids.includes(c.id)) state.ids.push(c.id);
       });
       // persist
@@ -172,16 +168,19 @@ const wishlistSlice = createSlice({
       }
       const value =
         prev.current_price != null ? Number(holdings || "0") * prev.current_price : null;
+      // keep prev.last_updated as-is when only holdings change
       state.entities[id] = { ...prev, holdings, value };
       saveToLocalStorage(state);
     },
     refreshPrices(state, action: PayloadAction<(CoinWithSparkline | null)[]>) {
+      const now = new Date().toISOString();
       action.payload.forEach((c) => {
         if (!c) return;
         const prev = state.entities[c.id] ?? null;
         const holdings = prev?.holdings ?? "0";
         const value = recalcValue(c, holdings);
-        state.entities[c.id] = { ...(c as CoinWithSparkline), holdings, value };
+        // stamp the last_updated timestamp for this coin to now (refresh)
+        state.entities[c.id] = { ...(c as CoinWithSparkline), holdings, value, last_updated: now };
         if (!state.ids.includes(c.id)) state.ids.push(c.id);
       });
       // persist

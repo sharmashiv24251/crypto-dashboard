@@ -117,6 +117,8 @@ const EditableHoldings: React.FC<EditableHoldingsProps> = ({
   return editing ? (
     <div className="flex items-center gap-3">
       <input
+        type="number"
+        step="any"
         value={val}
         onChange={(e) => {
           setVal(e.target.value);
@@ -169,11 +171,24 @@ const WatchlistTable: React.FC = () => {
     }
   }, [fullData, dispatch]);
 
+  // --- NEW: spinning state & key to restart animation ---
+  const [isRefreshing, setIsRefreshing] = useState(false); // "creeper" state you asked for
+  const [spinKey, setSpinKey] = useState(0); // bump this to restart animation
+
   const refresh = async () => {
+    // set the creeper state true and bump key to trigger the animation
+    setIsRefreshing(true);
+    setSpinKey((k) => k + 1);
+
     const res = await refetch();
     if (res?.data) {
       dispatch(refreshPrices(res.data as any));
     }
+
+    // we'll clear isRefreshing on animation end via onAnimationEnd,
+    // but also set a fallback timeout to ensure it resets even if animationend doesn't fire.
+    const fallback = setTimeout(() => setIsRefreshing(false), 800);
+    return () => clearTimeout(fallback);
   };
 
   useEffect(() => {
@@ -245,6 +260,22 @@ const WatchlistTable: React.FC = () => {
 
   return (
     <>
+      {/* --- CSS for single spin animation --- */}
+      <style>{`
+        @keyframes spinOnce {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        .animate-spin-once {
+          animation-name: spinOnce;
+          animation-duration: 600ms;
+          animation-timing-function: linear;
+          animation-fill-mode: none;
+          transform-origin: center;
+          display: inline-block; /* ensure transform applies correctly */
+        }
+      `}</style>
+
       <div className="w-full flex flex-col gap-4 items-center justify-center max-md:px-4">
         <div className="flex flex-row items-center justify-between w-full">
           <div className="flex flex-row items-center gap-2 text-text-default text-lg md:text-2xl font-medium">
@@ -259,7 +290,17 @@ const WatchlistTable: React.FC = () => {
               onClick={refresh}
             >
               <div className="flex flex-row items-center gap-2">
-                <RefreshIcon />
+                {/* Wrap the icon so we can add an animation class and restart it by changing key */}
+                <span
+                  // key changes force React to recreate element so animation restarts
+                  key={`refresh-icon-${spinKey}`}
+                  className={isRefreshing ? "animate-spin-once" : ""}
+                  onAnimationEnd={() => setIsRefreshing(false)}
+                  aria-hidden
+                  style={{ display: "inline-flex", alignItems: "center" }}
+                >
+                  <RefreshIcon />
+                </span>
                 {isMobile ? "" : "Refresh Prices"}
               </div>
             </Button>
