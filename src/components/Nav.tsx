@@ -49,27 +49,25 @@ const Nav = () => {
                     {(() => {
                       if (!connected) {
                         return (
-                          <button
+                          <div
                             onClick={openConnectModal}
-                            type="button"
-                            className="flex flex-row items-center gap-1.5"
+                            className="flex flex-row items-center gap-1.5 cursor-pointer"
                           >
                             <WalletIcon />
                             <span>Connect Wallet</span>
-                          </button>
+                          </div>
                         );
                       }
 
                       if (chain.unsupported) {
                         return (
-                          <button
+                          <div
                             onClick={openChainModal}
-                            type="button"
-                            className="flex flex-row items-center gap-1.5"
+                            className="flex flex-row items-center gap-1.5 cursor-pointer"
                           >
                             <WalletIcon />
                             <span>Wrong network</span>
-                          </button>
+                          </div>
                         );
                       }
 
@@ -104,9 +102,8 @@ const Nav = () => {
                             {chain.name}
                           </button> */}
 
-                          <button
+                          <div
                             onClick={openAccountModal}
-                            type="button"
                             className="flex flex-row items-center gap-1.5 cursor-pointer"
                           >
                             <WalletIcon />
@@ -114,7 +111,7 @@ const Nav = () => {
                             {/* {account.displayBalance
                               ? ` (${account.displayBalance})`
                               : ""} */}
-                          </button>
+                          </div>
                         </div>
                       );
                     })()}
