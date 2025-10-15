@@ -1,3 +1,6 @@
+// src/api/coingecko.ts
+import Coingecko from '@coingecko/coingecko-typescript'
+
 import {
   type BaseCoin,
   type CoinWithSparkline,
@@ -9,38 +12,34 @@ import {
   type SearchQuery,
 } from '../types/index'
 
-const DEFAULT_BASE_URL = 'https://api.coingecko.com/api/v3'
-const COINGECKO_BASE_URL = (import.meta.env.VITE_PUBLIC_BASE_URL as string) || DEFAULT_BASE_URL
-const API_KEY = (import.meta.env.VITE_COINGECKO_API_KEY as string) || ''
+// Create and export a single client instance (so other modules can reuse if you want)
+const PRO_KEY = (import.meta.env.VITE_COINGECKO_PRO_API_KEY as string) || ''
+const DEMO_KEY = (import.meta.env.VITE_PUBLIC_CG_API_KEY as string) || ''
 
-async function parseJson<T>(res: Response): Promise<T> {
-  const text = await res.text()
-  try {
-    return JSON.parse(text) as T
-  } catch (err) {
-    throw new Error(`Failed to parse JSON response: ${err instanceof Error ? err.message : String(err)} — raw: ${text}`)
-  }
-}
+const environment: 'pro' | 'demo' = PRO_KEY ? 'pro' : 'demo'
 
+export const coingeckoClient = new Coingecko({
+  proAPIKey: PRO_KEY || undefined,
+  demoAPIKey: DEMO_KEY || undefined,
+  environment,
+  maxRetries: 3,
+})
+
+/**
+ * Fetch all coins (markets) with pagination
+ */
 export const fetchAllCoins = async (
   page = 1,
   perPage = 5
 ): Promise<FetchAllCoinsResponse> => {
   try {
-    const url = `${COINGECKO_BASE_URL}/coins/markets?vs_currency=usd&page=${page}&per_page=${perPage}`
-
-    const response = await fetch(url, {
-      headers: {
-        'x-cg-demo-api-key': API_KEY ?? '',
-      },
-    })
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => '')
-      throw new Error(`Failed to fetch coins: ${response.status} ${response.statusText} ${text}`)
+    const params: Coingecko.Coins.MarketGetParams = {
+      vs_currency: 'usd',
+      page,
+      per_page: perPage,
     }
 
-    const data = (await parseJson<BaseCoin[]>(response)) || []
+    const data = (await coingeckoClient.coins.markets.get(params)) as BaseCoin[]
 
     const pagination: PaginationInfo = {
       currentPage: page,
@@ -50,65 +49,93 @@ export const fetchAllCoins = async (
     }
 
     return { data, pagination }
-  } catch (error) {
-    console.error('Error fetching all coins:', error)
-    throw error
+  } catch (err) {
+    if (err instanceof Coingecko.RateLimitError) {
+      console.error('Rate limit exceeded. Please try again later.')
+    } else if (err instanceof Coingecko.APIError) {
+      console.error(`An API error occurred: ${err.name} (Status: ${err.status})`)
+    } else {
+      console.error('An unexpected error occurred fetching all coins:', err)
+    }
+    throw err
   }
 }
 
+/**
+ * Helper: split array into chunks
+ */
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size))
+  }
+  return chunks
+}
+
+/**
+ * Fetch coins by multiple IDs.
+ * - Supports automatic batching (250 ids per request limit).
+ * - Returns an array matching requested ids order, inserting null for missing ids.
+ */
 export const getCoinsByIds = async (ids: CoinIds): Promise<GetCoinsByIdsResponse> => {
   try {
     if (!Array.isArray(ids) || ids.length === 0) return []
-    if (ids.length > 250) throw new Error('Too many IDs: CoinGecko supports up to 250 ids per request. Please batch your requests.')
+    // CoinGecko supports up to 250 ids per request
+    const MAX_IDS_PER_REQUEST = 250
 
-    const idsParam = ids.map(encodeURIComponent).join(',')
-    const url = `${COINGECKO_BASE_URL}/coins/markets?vs_currency=usd&ids=${idsParam}&per_page=${ids.length}&page=1&sparkline=true&price_change_percentage=24h`
+    // If small enough, do single request
+    const batches = chunkArray(ids, MAX_IDS_PER_REQUEST)
 
-    const response = await fetch(url, {
-      headers: {
-        'x-cg-demo-api-key': API_KEY ?? '',
-      },
-    })
+    const allResults: CoinWithSparkline[] = []
 
-    if (!response.ok) {
-      const text = await response.text().catch(() => '')
-      throw new Error(`Failed to fetch coins by IDs: ${response.status} ${response.statusText} ${text}`)
+    // Process batches sequentially to be friendly to rate limits.
+    for (const batch of batches) {
+      const params: Coingecko.Coins.MarketGetParams = {
+        vs_currency: 'usd',
+        ids: batch.join(','),
+        per_page: batch.length,
+        page: 1,
+        sparkline: true,
+        price_change_percentage: '24h',
+      }
+
+      const batchData = (await coingeckoClient.coins.markets.get(params)) as CoinWithSparkline[]
+      allResults.push(...(batchData || []))
     }
 
-    const data = (await parseJson<CoinWithSparkline[]>(response)) || []
-
+    // Map results by id for ordering
     const map = new Map<string, CoinWithSparkline>()
-    for (const item of data) {
+    for (const item of allResults) {
       if (item && item.id) map.set(item.id, item)
     }
 
     return ids.map((id) => map.get(id) ?? null)
-  } catch (error) {
-    console.error('Error fetching coins by IDs:', error)
-    throw error
+  } catch (err) {
+    if (err instanceof Coingecko.RateLimitError) {
+      console.error('Rate limit exceeded. Please try again later.')
+    } else if (err instanceof Coingecko.APIError) {
+      console.error(`An API error occurred: ${err.name} (Status: ${err.status})`)
+    } else {
+      console.error('An unexpected error occurred fetching coins by IDs:', err)
+    }
+    throw err
   }
 }
 
+/**
+ * Search coins by query
+ */
 export const searchCoins = async (query: SearchQuery): Promise<SearchCoinsResponse> => {
   try {
-    if (!query || query.trim() === '') {
+    if (!query || String(query).trim() === '') {
       throw new Error('Search query is required')
     }
 
-    const url = `${COINGECKO_BASE_URL}/search?query=${encodeURIComponent(query)}`
-
-    const response = await fetch(url, {
-      headers: {
-        'x-cg-demo-api-key': API_KEY ?? '',
-      },
-    })
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => '')
-      throw new Error(`Failed to search coins: ${response.status} ${response.statusText} ${text}`)
+    const params: Coingecko.Search.SearchGetParams = {
+      query: String(query).trim(),
     }
 
-    const data = (await parseJson<SearchCoinsResponse>(response))
+    const data = (await coingeckoClient.search.get(params)) as SearchCoinsResponse
 
     return {
       coins: data?.coins ?? [],
@@ -117,8 +144,14 @@ export const searchCoins = async (query: SearchQuery): Promise<SearchCoinsRespon
       categories: data?.categories ?? [],
       nfts: data?.nfts ?? [],
     }
-  } catch (error) {
-    console.error('Error searching coins:', error)
-    throw error
+  } catch (err) {
+    if (err instanceof Coingecko.RateLimitError) {
+      console.error('Rate limit exceeded. Please try again later.')
+    } else if (err instanceof Coingecko.APIError) {
+      console.error(`An API error occurred: ${err.name} (Status: ${err.status})`)
+    } else {
+      console.error('An unexpected error occurred searching coins:', err)
+    }
+    throw err
   }
 }
