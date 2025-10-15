@@ -525,7 +525,7 @@ const WatchlistTable: React.FC = () => {
         modalClassName="relative z-50 rounded-xl overflow-hidden w-full max-w-[640px] max-sm:mx-4 bg-background shadow-[0_8px_16px_0_#00000052,0_4px_8px_0_#00000052,0_0_0_1px_#FFFFFF1A,0_-1px_0_0_#FFFFFF0A,inset_0_0_0_1.5px_#FFFFFF0F,inset_0_0_0_1px_#18181B]"
         showShadow={true}
       >
-        <AddToken />
+        <AddToken onClose={() => setIsAddOpen(false)} />
       </Modal>
     </>
   );

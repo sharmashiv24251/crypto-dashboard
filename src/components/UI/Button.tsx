@@ -24,7 +24,7 @@ const Button: React.FC<ButtonProps> = ({
     secondary:
       "bg-surface text-text-default hover:bg-surface-contrast focus:ring-surface-contrast shadow-[0_0_0_1px_#00000014,_0_1px_2px_0_#0000001F]",
     outline:
-      "border border-accent text-accent bg-transparent hover:bg-accent/10 focus:ring-accent",
+      "border border-muted text-muted bg-transparent hover:bg-muted/10 focus:ring-muted",
   };
 
   const sizes: Record<string, string> = {

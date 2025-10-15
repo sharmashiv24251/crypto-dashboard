@@ -19,12 +19,23 @@ const PER_PAGE = 12;
 const BOTTOM_BAR_HEIGHT = 56; // px
 const SEARCH_FIELD_HEIGHT = 52; // px
 
-const AddToken: React.FC = () => {
+const AddToken: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
   const debouncedQuery = useDebouncedValue(searchQuery, 600);
   const dispatch = useAppDispatch();
   const wishlistIds = useAppSelector((s) => s.wishlist.ids);
+
+  // Keep an initial snapshot of wishlist IDs (the "previous" state to compare against).
+  // This snapshot is taken once when the component mounts.
+  const originalIdsRef = useRef<string[]>(wishlistIds);
+  useEffect(() => {
+    originalIdsRef.current = wishlistIds;
+    // Intentionally only run on mount — we want the "previous" state when the UI opened.
+    // If you want to refresh this snapshot when the modal re-opens, set up a prop to trigger that.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const selectedSet = useMemo(() => new Set(wishlistIds), [wishlistIds]);
 
   const {
@@ -102,6 +113,16 @@ const AddToken: React.FC = () => {
   const scrollableHeight = `${
     totalHeight - SEARCH_FIELD_HEIGHT - BOTTOM_BAR_HEIGHT
   }px`;
+
+  // Compare current wishlistIds to the original snapshot to determine if any changes were made.
+  const hasChanges = useMemo(() => {
+    const origSet = new Set(originalIdsRef.current);
+    if (origSet.size !== wishlistIds.length) return true;
+    for (const id of wishlistIds) {
+      if (!origSet.has(id)) return true;
+    }
+    return false;
+  }, [wishlistIds]);
 
   return (
     <div
@@ -233,11 +254,16 @@ const AddToken: React.FC = () => {
       >
         <Button
           size="lg"
-          variant="primary"
+          variant={hasChanges ? "primary" : "outline"}
           className="mr-4"
           onClick={() => {
-            console.log("Add to wishlist:", wishlistIds);
+            // At the moment the add/remove actions are dispatched immediately on toggle.
+            // This button could either be used to persist to server, close modal, or show feedback.
+            // For now keep existing behavior (log), but you can replace this with a batch-update dispatch.
+            onClose();
           }}
+          disabled={!hasChanges}
+          aria-disabled={!hasChanges}
         >
           Add to Wishlist
         </Button>
